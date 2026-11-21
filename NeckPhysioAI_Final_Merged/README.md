@@ -1,144 +1,270 @@
-# PhysioAlign
+# NECKPHYSIOAI
+### AI-Powered Neck Physiotherapy & Exercise Monitoring Platform
 
-[![CI](https://github.com/Arush-O7/PhysioAlign/actions/workflows/ci.yml/badge.svg)](https://github.com/Arush-O7/PhysioAlign/actions/workflows/ci.yml)
+**NECKPHYSIOAI** is a bilingual (Arabic/English) web application designed to support neck physiotherapy exercises through webcam-based movement tracking, real-time feedback, and digital progress monitoring.
 
-A webcam posture coach for yoga and physiotherapy exercises. It tracks 33 body landmarks in the browser and scores 3D joint angles against target ranges for each pose. It gives on-screen and spoken corrections as you move, times how long you hold good form, and sends each session to a clinician dashboard with an AI-written report.
+The platform combines computer vision, interactive exercise guidance, and patient–doctor communication to support accessible, personalized physiotherapy practice.
 
-<p align="center">
-  <img src="docs/screenshots/session.jpg" width="49%" alt="Live session: camera view with the tracked skeleton and joint angle readouts" />
-  <img src="docs/screenshots/report.jpg" width="49%" alt="Session report with the accuracy chart and AI critique" />
-</p>
-<p align="center">
-  <img src="docs/screenshots/dashboard.jpg" width="49%" alt="Patient dashboard with streak, average score and session history" />
-  <img src="docs/screenshots/doctor-portal.jpg" width="49%" alt="Clinician portal listing assigned patients" />
-</p>
+**Live Website:** https://neckphysioai2.vercel.app/
 
-**Roles:**
-- **Patients** practise poses, track progress and chat with AI coaches.
-- **Doctors** (after admin approval) review their assigned patients' sessions and prescribe care plans.
-- **Admins** manage accounts, approve doctors and assign patients.
+**Source Code:** https://github.com/elaliaaelmoez/NECKPHYSIOAI2
 
-## Engineering highlights
+---
 
-| | What | Result |
-| --- | --- | --- |
-| **Off-main-thread inference** | MediaPipe runs in a Web Worker. Frames are passed as transferable `ImageBitmap`s, one frame in flight at a time. | Main thread time per frame: **17.8 ms → 0.3 ms** (median), same 17.5 ms processing latency |
-| **Jitter-free feedback** | One-Euro filter on each joint angle, plus a 250 ms debounce on the displayed correction | Correction flicker **755 → 10 flips/min (-99%)**. Real errors are still flagged within **300 ms**. |
-| **3D joint angles** | Angles are calculated from world landmarks in metres, not 2D image coordinates | Readings no longer depend on camera angle or the 4:3 aspect ratio |
-| **Async report generation** | Sessions save straight away (`202 Accepted`). A queue with retries writes the Gemini critique in the background, and the client polls with backoff. Pending jobs resume after a restart. | Saving no longer waits several seconds for the LLM |
-| **Code splitting** | Screens behind the login are lazy-loaded, then prefetched in the background once the user signs in | Initial JS **728.8 KB → 200.3 KB** (gzip 200.4 → 60.1 KB) |
-| **Abuse limits** | Layered rate limits: a broad per-IP ceiling, a tight per-IP limit on auth that refunds successful sign-ins, and per-account limits on the endpoints that call the model. Repeated wrong passwords pause that one account with a growing backoff. | Standard `RateLimit-*` headers; a legitimate user never trips it |
-| **Browser hardening** | CSP with no `unsafe-eval` (wasm allowed explicitly), `nosniff`, `frame-ancestors 'none'`, `Permissions-Policy` limiting the camera to this origin, HSTS over https | Verified in a real browser: pose worker, fonts and Google sign-in all still work with zero violations |
-| **Operability** | A request id on every response and in error payloads, one log line per call with slow-request warnings, statement/query timeouts on Postgres, a 25s cap on model calls, and HTTP header/request timeouts | A hung dependency can't tie up the server, and a user can quote an id |
-| **User control** | Download-your-data export and self-service account deletion (profile and sessions, behind a typed confirmation), plus paginated history | |
-| **Security** | httpOnly `SameSite=Lax` session cookie, CSRF header check, role-based access with per-doctor patient scoping, Zod validation on every body, server-side Google ID-token verification, rate-limited auth, PBKDF2 (210k iterations) with rehash on login | Covered by the API test suite |
-| **Live joint colouring** | The skeleton overlay colours each limb by whether that joint is inside its target range, with a halo on the joint that needs fixing | You can see *where* the pose is wrong without reading the cue list |
-| **Session replay** | The per-second log every session records is replayed on the report: scrub or play back the score, the cue and the joint angles for any second | Reviewing a session doesn't need the video, which never leaves the device |
-| **Breathing pacer** | A ring that expands and contracts on a 4s-in / 6s-out cycle while a hold is running, with the phase and a countdown | Gives the hold a rhythm; can be switched off and the choice sticks |
-| **Shareable session card** | The report renders a 1200×630 PNG on a canvas — grade, stats and the score curve with the hold threshold marked — in the colours of the active theme | One click to save a session summary worth posting |
-| **Themes** | Three palettes (Sunshine, Orchid and a dark Midnight) built on CSS custom properties, remembered per browser | Usable in a dim room; no hardcoded colours left in components |
-| **Schema migrations** | Versioned, transactional migrations with an advisory lock. Existing databases are upgraded in place: `TEXT` JSON becomes `JSONB`, the `clerk_id` column is renamed to `user_id`, and indexes are added. | Tested against the pre-migration production schema |
+## Project Overview
 
-The pose numbers were measured on an Apple M4 in Chrome 153 (GPU delegate) over 300 frames of a 640×480 feed. To measure on your own machine, open the app with `?perf` and run `__perf()` in the console. To reproduce the smoothing numbers, run `npm run bench:smoothing`.
+NECKPHYSIOAI helps patients perform guided neck exercises while using their device's camera to monitor movement.
 
-## Architecture
+Using MediaPipe, the application estimates head, face, and upper-body landmarks to evaluate exercise performance and provide understandable feedback.
 
-```mermaid
-flowchart LR
-  subgraph Browser
-    UI[React UI] -->|ImageBitmap| W[Pose worker<br/>MediaPipe WASM + GPU]
-    W -->|33 landmarks| A[3D angles + One-Euro<br/>smoothing + scoring]
-    A --> UI
-  end
-  UI -->|REST, httpOnly cookie| API[Express API<br/>auth · validation · RBAC]
-  API --> DB[(PostgreSQL)]
-  API --> Q[Critique queue]
-  Q -->|retry + backoff| G[Gemini API]
-  Q --> DB
+The system is designed to accommodate natural differences in patients' movement abilities rather than requiring perfect reproduction of demonstration videos.
+
+**Important:** Automated feedback is an experimental movement assessment and does not replace clinical evaluation by a qualified physiotherapist.
+
+## Key Features
+
+### 1. AI-Assisted Exercise Tracking
+
+- Webcam-based tracking using MediaPipe.
+- Detection of facial, head, and body landmarks.
+- Exercise-specific movement evaluation.
+- Real-time guidance and correction messages.
+- Configurable movement tolerance and repetition targets.
+- Support for movement calibration and tracking confidence.
+- Visual feedback during exercises.
+
+### 2. Neck Physiotherapy Exercises
+
+The application includes eight guided neck exercises.
+
+Depending on the exercise, the tracking system can evaluate:
+
+- Head and neck positioning.
+- Movement direction and range.
+- Chin-tuck and head-lift movements.
+- Holding duration.
+- Repetition completion.
+- Eye and gaze movement estimates where applicable.
+
+The application provides movement instructions and progress indicators to guide patients through their exercise sessions.
+
+### 3. Patient Dashboard
+
+Patients can:
+
+- Create an account and sign in.
+- Complete a Neck Disability Index (NDI) assessment.
+- Access guided exercises.
+- Monitor exercise performance.
+- View session history and progress information.
+- Receive exercise feedback.
+
+### 4. Doctor Dashboard
+
+Authorized doctors can:
+
+- Sign in using their assigned accounts.
+- Review assigned patients.
+- Access patient exercise sessions and progress.
+- Review relevant assessment results.
+- Manage supported care-planning features.
+
+Doctor access is controlled through role-based permissions.
+
+### 5. Bilingual Interface
+
+The application supports:
+
+- Arabic
+- English
+
+The interface provides exercise guidance, navigation, and feedback in both languages.
+
+## Technologies Used
+
+| Component | Technologies |
+|---|---|
+| Frontend | React, TypeScript, Vite |
+| Backend | Node.js, Express, TypeScript |
+| Computer Vision | MediaPipe Tasks Vision |
+| Database | PostgreSQL, Supabase |
+| Validation | Zod |
+| Charts | Recharts |
+| AI Integration | Google Gemini (where configured) |
+| Hosting | Vercel |
+| Version Control | Git, GitHub |
+| Testing | Vitest |
+
+## System Architecture
+
+```text
+Patient / Doctor
+       |
+       v
+React + TypeScript Frontend
+       |
+       +---- Webcam --> MediaPipe
+       |                 |
+       |                 v
+       |          Movement Analysis
+       |                 |
+       |                 v
+       |          Exercise Feedback
+       |
+       v
+Express REST API
+       |
+       v
+Supabase PostgreSQL
+       |
+       v
+Patient Sessions / Doctor Dashboard
 ```
 
-The video never leaves the browser. Only the per-second scores and angles are sent to the server.
+## Local Installation
 
-## Tech stack
+### Requirements
 
-- **Frontend:** React 18, TypeScript, Vite, MediaPipe Tasks Vision, Recharts
-- **Backend:** Node.js, Express, TypeScript, Zod, PostgreSQL (`pg`), Google Gemini
-- **Tooling:** Vitest, Supertest, GitHub Actions, Docker, Render
+- Node.js 18 or newer, using a compatible supported release.
+- npm
+- PostgreSQL database connection.
+- Modern browser with webcam support.
 
-## Running locally
+### Installation
 
-**With Docker** (includes Postgres):
+Clone the repository:
 
 ```bash
-docker compose up --build
-# http://localhost:5001
+git clone https://github.com/elaliaaelmoez/NECKPHYSIOAI2.git
+cd NECKPHYSIOAI2/NeckPhysioAI_Final_Merged
 ```
 
-**Without Docker** (needs Node 18+ and a Postgres database):
+Install dependencies:
 
 ```bash
 npm install
-cp .env.example .env      # set DATABASE_URL and AUTH_SECRET at least
-npm run dev:full          # web on :5173, API on :5001
 ```
 
-Migrations run automatically when the server starts.
+Create a local `.env` file using `.env.example` as a reference.
 
-## Tests
+Configure the required server-side environment variables:
+
+```env
+DATABASE_URL=your_postgresql_connection_string
+AUTH_SECRET=your_secure_random_secret
+```
+
+Optional integrations may require additional environment variables.
+
+Do not commit `.env`, database credentials, passwords, or API keys to GitHub.
+
+Run the frontend and backend together:
 
 ```bash
-TEST_DATABASE_URL=postgres://localhost:5432/physio_test npm test
+npm run dev:full
 ```
 
-There are 57 tests:
-- **Unit tests:** angle maths, pose scoring, smoothing, HTML sanitising, tokens, passwords, rate limiting.
-- **API tests:** run against a real Postgres. They cover auth and cookies, CSRF, role and patient-level access control, validation, the async critique pipeline, and upgrading the legacy schema.
+Frontend:
 
-The API tests wipe the database they point at, so use a throwaway one. Without `TEST_DATABASE_URL` they're skipped. CI runs type checks, all tests, the production build and a Docker build on every push.
+`http://localhost:5173`
 
-## Deploying on Render
+Backend:
 
-`render.yaml` defines the service:
-- Build: `npm ci --include=dev && npm run build`
-- Start: `npm start`
-- Health check: `/api/health`
+`http://localhost:5001`
 
-Set `DATABASE_URL`, `AUTH_SECRET`, `GEMINI_API_KEY`, `VITE_GOOGLE_CLIENT_ID` and optionally `ADMIN_EMAILS`. With Supabase, use the **Session pooler** connection string, because the direct host is IPv6-only and Render can't reach it.
+If these ports are already in use, check the addresses reported in the terminal.
 
-## API
+## Production Deployment
 
-| Method | Path | Access |
-| --- | --- | --- |
-| `POST` | `/api/auth/signup`, `/login`, `/google`, `/logout` | public, rate limited |
-| `GET`, `PUT` | `/api/users/me` | signed in |
-| `GET` | `/api/users/:id`, `/api/users/:id/sessions` | self, assigned doctor, admin |
-| `POST` | `/api/sessions` → `202` | signed in |
-| `GET`, `DELETE` | `/api/sessions/:id` | owner (+ assigned doctor to read) |
-| `POST` | `/api/sessions/:id/critique/retry` | owner |
-| `POST` | `/api/coach/chat` | signed in |
-| `GET` | `/api/doctor/patients` | approved doctor (own patients), admin |
-| `GET`, `PUT`, `POST` | `/api/doctor/patients/:id/sessions`, `/care-plan`, `/insight` | assigned doctor, admin |
-| `GET`, `PUT`, `POST`, `DELETE` | `/api/admin/...` | admin |
-| `GET` | `/api/health` | public |
+The project is configured for deployment on **Vercel**.
 
-## Project layout
+The frontend is built using Vite, while the Express API is integrated through Vercel Functions.
 
-```
-backend/src/
-  routes/        HTTP layer: validation and access checks
-  services/      business logic, SQL, Gemini, critique queue, tokens
-  middleware/    auth, CSRF, rate limiting, errors
-  db/            connection pool and versioned migrations
-backend/test/    API and unit tests
-src/
-  components/    screens
-  data/poses.ts  pose definitions and scoring rules
-  utils/         angle maths, smoothing, pose detector, api client
-public/pose-worker.js   MediaPipe inference worker
-scripts/         benchmark and db check
+Deployment configuration includes:
+
+- `vercel.json`
+- `api/index.ts`
+- `package.json`
+- `vite.config.ts`
+
+**Vercel Root Directory:**
+
+```text
+NeckPhysioAI_Final_Merged
 ```
 
-## Notes
+Configure sensitive environment variables in the Vercel dashboard rather than storing them in source code.
 
-- The in-memory rate limiter and critique queue assume a single server instance. Scaling out would need Redis or a proper job queue.
-- This is a personal project, not a medical device.
+The deployed application is available at:
+
+https://neckphysioai2.vercel.app/
+
+## Testing
+
+Run the production build:
+
+```bash
+npm run build
+```
+
+Run TypeScript checks:
+
+```bash
+npm run typecheck
+```
+
+Run automated tests:
+
+```bash
+npm test
+```
+
+Backend integration tests may require a separate test database. Never point destructive test procedures at a production database.
+
+Exercise tracking should also be tested with a real webcam because automated unit tests cannot fully establish movement-tracking accuracy.
+
+## Project Structure
+
+```text
+NeckPhysioAI_Final_Merged/
+├── src/
+│   ├── components/
+│   ├── data/
+│   ├── game/
+│   ├── i18n/
+│   ├── neckAI/
+│   └── utils/
+├── backend/
+│   ├── src/
+│   └── test/
+├── api/
+├── public/
+├── scripts/
+├── docs/
+├── package.json
+├── vercel.json
+└── vite.config.ts
+```
+
+## Privacy and Safety
+
+- Patient authentication and doctor access are handled by the backend.
+- Sensitive credentials are stored in environment variables.
+- Doctor access is restricted according to account permissions.
+- Webcam tracking is processed in the browser.
+- Movement feedback depends on tracking quality and camera positioning.
+- Exercise assessment values are application-generated estimates, not clinically validated diagnostic measurements.
+
+**NECKPHYSIOAI is an educational and experimental physiotherapy support application, not a certified medical device.**
+
+---
+
+## Project Links
+
+**GitHub Repository:**  
+https://github.com/elaliaaelmoez/NECKPHYSIOAI2
+
+**Live Application:**  
+https://neckphysioai2.vercel.app/
+
+**Project:** NECKPHYSIOAI — AI-Assisted Neck Physiotherapy Platform
