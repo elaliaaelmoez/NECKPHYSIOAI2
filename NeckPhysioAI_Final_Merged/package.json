@@ -14,7 +14,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "bench:smoothing": "tsx scripts/bench-smoothing.ts",
-    "db:check": "tsx scripts/check-db.ts"
+    "db:check": "tsx scripts/check-db.ts",
+    "setup:mediapipe": "node scripts/setup-mediapipe.mjs",
+    "postinstall": "node scripts/setup-mediapipe.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
