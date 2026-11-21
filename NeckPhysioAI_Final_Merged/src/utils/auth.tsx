@@ -49,17 +49,28 @@ const saveAuthResponse = ({ user }: AuthResponse) => {
 };
 
 const postAuth = async (url: string, body: object, fallbackError: string) => {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
-    credentials: 'same-origin',
-    body: JSON.stringify(body)
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data.error || fallbackError);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'fetch' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body)
+    });
+  } catch {
+    throw new Error('Cannot reach the server. Check your internet connection and that the API is running.');
   }
+
+  // the server may answer with an HTML error page (e.g. a platform 5xx) instead of JSON
+  const raw = await response.text();
+  let data: any = {};
+  try { data = raw ? JSON.parse(raw) : {}; } catch { /* not JSON */ }
+  if (!response.ok) {
+    throw new Error(data.error || (response.status >= 500
+      ? `Server or database is unavailable (HTTP ${response.status}). Open /api/health to check the setup.`
+      : fallbackError));
+  }
+  if (!data.user) throw new Error(fallbackError);
 
   saveAuthResponse(data);
   return data.user;

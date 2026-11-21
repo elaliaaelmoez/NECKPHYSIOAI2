@@ -27,12 +27,19 @@ const initial: Answers = {
   ndi: Array(10).fill(null),
 };
 
+// Red flags: ANY checked item blocks camera exercise until a clinician has cleared the patient (also enforced by the backend).
 const symptoms = [
-  { id: 'dizziness', label: 'الدوخة أو الدوار' },
-  { id: 'numbness', label: 'التنميل أو فقدان الإحساس' },
-  { id: 'weakness', label: 'ضعف في الذراع أو اليد' },
-  { id: 'severe_headache', label: 'صداع شديد أو غير معتاد' },
-  { id: 'recent_trauma', label: 'إصابة حديثة في الرقبة أو الرأس' },
+  { id: 'dizziness', ar: 'الدوخة أو الدوار', en: 'Dizziness or vertigo' },
+  { id: 'numbness', ar: 'التنميل أو فقدان الإحساس', en: 'Numbness or loss of sensation' },
+  { id: 'weakness', ar: 'ضعف في الذراع أو اليد', en: 'Arm or hand weakness' },
+  { id: 'severe_headache', ar: 'صداع شديد أو غير معتاد', en: 'Severe or unusual headache' },
+  { id: 'recent_trauma', ar: 'إصابة حديثة في الرقبة أو الرأس', en: 'Recent neck or head trauma' },
+  { id: 'dizziness_with_neck_movement', ar: 'دوخة أو تشوش في الرؤية أو صعوبة في الكلام/البلع عند تحريك الرقبة', en: 'Dizziness, blurred vision, or trouble speaking/swallowing when moving the neck' },
+  { id: 'balance_or_hand_clumsiness', ar: 'اضطراب في التوازن أو المشي، أو خرقاء/ضعف في حركة اليدين (مثل الكتابة أو زرار القميص)', en: 'Balance or walking problems, or clumsy hands (writing, buttoning)' },
+  { id: 'bladder_bowel_change', ar: 'تغيّر في التحكم بالبول أو البراز', en: 'New change in bladder or bowel control' },
+  { id: 'night_pain_fever_weight_loss', ar: 'ألم ليلي مستمر، أو حرارة، أو نزول وزن غير مبرر', en: 'Constant night pain, fever, or unexplained weight loss' },
+  { id: 'recent_neck_surgery', ar: 'عملية حديثة في الرقبة أو العمود الفقري', en: 'Recent neck or spine surgery' },
+  { id: 'known_neck_instability', ar: 'عدم استقرار معروف في فقرات الرقبة (مثل الروماتويد أو إصابة أربطة)', en: 'Known cervical instability (e.g. rheumatoid arthritis, ligament injury)' },
 ];
 
 const areas: { value: Answers['area']; label: string }[] = [
@@ -156,10 +163,10 @@ export function NeckAssessmentScreen() {
         <label><input type="checkbox" checked={answers.restriction} onChange={e => select('restriction', e.target.checked)} /> أشعر بصعوبة أو تقييد عند تحريك الرقبة</label>
         <fieldset style={{ border: '1px solid #bbb', borderRadius: 12, padding: 15 }}>
           <legend>{tr('هل لديك أي من الأعراض التحذيرية التالية؟','Do you have any warning symptoms?')}</legend>
-          {symptoms.map(({ id, label }) => (
+          {symptoms.map(({ id, ar, en }) => (
             <label key={id} style={{ display: 'block', margin: 8 }}>
               <input type="checkbox" checked={answers.warningSymptoms.includes(id)} onChange={e => select('warningSymptoms', e.target.checked ? [...answers.warningSymptoms, id] : answers.warningSymptoms.filter(s => s !== id))} />{' '}
-              {language==='ar'?label:({'الدوخة أو الدوار':'Dizziness','التنميل أو فقدان الإحساس':'Numbness','ضعف في الذراع أو اليد':'Arm or hand weakness','صداع شديد أو غير معتاد':'Severe or unusual headache','إصابة حديثة في الرقبة أو الرأس':'Recent neck or head trauma'} as Record<string,string>)[label]||label}
+              {language==='ar'?ar:en}
             </label>
           ))}
         </fieldset>

@@ -50,11 +50,12 @@ export function DoctorPortal() {
   const tr=(en:string,ar:string)=>language==='ar'?ar:en;
   const { user } = useUser();
 
-  const [neckExercise, setNeckExercise] = useState({id:'neck-rotation',title:'Gentle Neck Rotation',description:'Doctor-approved gentle rotation',instructions:'Move slowly; stop if symptoms occur.',videoUrl:'',active:false,ruleApproved:false,minNdi:0,maxNdi:100,rulePriority:100});
+  const [neckExercise, setNeckExercise] = useState({id:'neck-rotation',title:'Gentle Neck Rotation',description:'Doctor-approved gentle rotation',instructions:'Move slowly; stop if symptoms occur.',videoUrl:'',active:false,ruleApproved:false,minNdi:0,maxNdi:100,rulePriority:100,planReps:null as number|null,planSets:null as number|null,planHoldSeconds:null as number|null,planRestSeconds:null as number|null});
   const [neckExercises,setNeckExercises]=useState<any[]>([]);
   const [neckSaveMessage,setNeckSaveMessage]=useState('');
   const [neckDetails,setNeckDetails]=useState<any>(null);
   useEffect(()=>{apiFetch('/api/neck/doctor/exercises').then(r=>r.ok?r.json():[]).then(rows=>{setNeckExercises(rows);const e=rows.find((item:any)=>item.id==='neck-rotation')||rows[0];if(e)setNeckExercise({...e,videoUrl:e.videoUrl||''});}).catch(()=>{});},[]);
+  const numOrNull=(v:string)=>v===''?null:Number(v);
   async function saveNeckVideo(){setNeckSaveMessage('Saving…');try{const response=await apiFetch(`/api/neck/doctor/exercises/${neckExercise.id}`,{method:'PUT',body:JSON.stringify({...neckExercise,videoUrl:neckExercise.videoUrl||null})});const body=await response.json();if(!response.ok)throw Error(body.error||'Save failed');setNeckSaveMessage('Exercise settings saved. All library videos are independent of the NDI result.');}catch(e){setNeckSaveMessage((e as Error).message)}}
   const [patients, setPatients] = useState<PatientRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -213,6 +214,13 @@ export function DoctorPortal() {
           <label>HTTPS video URL (YouTube or MP4) <input style={{width:'100%'}} type="url" value={neckExercise.videoUrl} onChange={e=>setNeckExercise({...neckExercise,videoUrl:e.target.value})} placeholder="https://.../neck-rotation.mp4"/></label>
           <label>{tr('Exercise instructions','تعليمات التمرين')} <textarea style={{width:'100%'}} value={neckExercise.instructions} onChange={e=>setNeckExercise({...neckExercise,instructions:e.target.value})}/></label>
           <label><input type="checkbox" checked={neckExercise.active} onChange={e=>setNeckExercise({...neckExercise,active:e.target.checked})}/> {tr('Active video','فيديو متاح')}</label>
+          <fieldset style={{border:'1px solid #cfd8dc',borderRadius:10,padding:10}}>
+            <legend>{tr('Dosage for the camera session (leave all four empty = free session without a fixed plan)','الجرعة في جلسة الكاميرا (سيبي الأربعة فاضيين = جلسة حرة من غير خطة ثابتة)')}</legend>
+            <label>{tr('Reps per set','التكرارات في المجموعة')} <input type="number" min={1} max={50} style={{width:70}} value={neckExercise.planReps??''} onChange={e=>setNeckExercise({...neckExercise,planReps:numOrNull(e.target.value)})}/></label>{' '}
+            <label>{tr('Sets','المجموعات')} <input type="number" min={1} max={6} style={{width:60}} value={neckExercise.planSets??''} onChange={e=>setNeckExercise({...neckExercise,planSets:numOrNull(e.target.value)})}/></label>{' '}
+            <label>{tr('Hold (s)','الثبات (ث)')} <input type="number" min={1} max={30} style={{width:60}} value={neckExercise.planHoldSeconds??''} onChange={e=>setNeckExercise({...neckExercise,planHoldSeconds:numOrNull(e.target.value)})}/></label>{' '}
+            <label>{tr('Rest between sets (s)','الراحة بين المجموعات (ث)')} <input type="number" min={0} max={180} style={{width:70}} value={neckExercise.planRestSeconds??''} onChange={e=>setNeckExercise({...neckExercise,planRestSeconds:numOrNull(e.target.value)})}/></label>
+          </fieldset>
           <p>{tr('Video availability in the patient library is independent of NDI score. The doctor can manage video information; patient exercise sessions are recorded separately.','إتاحة الفيديوهات في مكتبة المريض مستقلة عن نتيجة NDI. يمكن للطبيب إدارة بيانات الفيديوهات، وتُحفظ جلسات المرضى بشكل منفصل.')}</p>
           <button type="button" className="btn-plush primary" onClick={saveNeckVideo}>{tr('Save neck exercise','حفظ التمرين')}</button>
           <p role="status">{neckSaveMessage}</p>
@@ -221,7 +229,15 @@ export function DoctorPortal() {
       {selectedPatient && neckDetails && <section className="plush" style={{maxWidth:1100,width:'95%',margin:'10px auto',padding:18,background:'var(--surface)'}}>
         <h3>{tr('Neck assessments and camera sessions:','استبيانات الرقبة وجلسات الكاميرا:')} {selectedPatient.name}</h3>
         <p>{tr('Assessments:','الاستبيانات:')} {neckDetails.assessments?.length||0} | {tr('Tracking sessions:','جلسات التتبع:')} {neckDetails.sessions?.length||0}</p>
-        <pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontSize:12}}>{JSON.stringify(neckDetails,null,2)}</pre>
+        <div style={{overflowX:'auto'}}><table style={{width:'100%',borderCollapse:'collapse',fontSize:13}}>
+          <thead><tr>{[tr('Date','التاريخ'),tr('Exercise','التمرين'),tr('Reps','التكرارات'),tr('Sets','المجموعات'),tr('Match %','التطابق %'),tr('Pain before→after','الألم قبل←بعد'),tr('Plan done','الخطة'),tr('Flags','تنبيهات')].map(h=><th key={h} style={{textAlign:'start',borderBottom:'1px solid #ccc',padding:4}}>{h}</th>)}</tr></thead>
+          <tbody>{(neckDetails.sessions||[]).map((x:any)=>{const pf=x.pain_after!=null&&(x.pain_after>=7||(x.pain_before!=null&&x.pain_after-x.pain_before>=3));return <tr key={x.id}>
+            <td style={{padding:4}}>{new Date(x.created_at).toLocaleString()}</td><td style={{padding:4}}>{x.exercise_id}</td>
+            <td style={{padding:4}}>{x.reps_completed??'—'}{x.reps_target?` / ${x.reps_target}`:''}</td><td style={{padding:4}}>{x.sets_target?`${x.sets_completed??0} / ${x.sets_target}`:'—'}</td>
+            <td style={{padding:4}}>{x.match_percent!=null?Math.round(x.match_percent):'—'}</td><td style={{padding:4}}>{x.pain_before??'—'} → {x.pain_after??'—'}</td>
+            <td style={{padding:4}}>{x.plan_completed==null?'—':x.plan_completed?'✓':'✗'}</td>
+            <td style={{padding:4,color:'#a13543',fontWeight:700}}>{[x.stopped_for_symptoms&&tr('Stopped: symptoms','وقف: أعراض'),pf&&tr('Pain rise','زيادة ألم')].filter(Boolean).join(' · ')}</td></tr>;})}</tbody></table></div>
+        <details style={{marginTop:8}}><summary>{tr('Raw data (JSON)','البيانات الخام (JSON)')}</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontSize:12}}>{JSON.stringify(neckDetails,null,2)}</pre></details>
       </section>}
 
 
